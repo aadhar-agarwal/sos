@@ -8,7 +8,7 @@
 
 import glob
 from sos.policies.distros.redhat import RedHatPolicy
-from sos.report.plugins import Plugin, IndependentPlugin, PluginOpt
+from sos.report.plugins import Plugin, IndependentPlugin, PluginOpt, AzurePlugin
 
 
 class Kernel(Plugin, IndependentPlugin):
@@ -146,5 +146,10 @@ class Kernel(Plugin, IndependentPlugin):
 
         if not self.get_option("trace"):
             self.add_forbidden_path("/sys/kernel/debug/tracing/trace")
+
+class AzureKernel(Kernel, AzurePlugin):
+    def setup(self):
+        super().setup()
+        self.add_copy_spec("/boot/config*")
 
 # vim: set et ts=4 sw=4 :
