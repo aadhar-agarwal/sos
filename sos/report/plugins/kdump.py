@@ -8,7 +8,7 @@
 
 import platform
 from sos.report.plugins import Plugin, PluginOpt, RedHatPlugin, DebianPlugin, \
-    UbuntuPlugin, CosPlugin
+    UbuntuPlugin, CosPlugin, AzurePlugin
 
 
 class KDump(Plugin):
@@ -123,5 +123,46 @@ class CosKDump(KDump, CosPlugin):
         self.add_cmd_output('ls -alRh /var/kdump*')
         if self.get_option("collect-kdumps"):
             self.add_copy_spec(["/var/kdump-*"])
+
+
+class AzureKDump(KDump, AzurePlugin):
+
+    files = ('/etc/kdump.conf',)
+    packages = ('kexec-tools',)
+
+    def read_kdump_conffile(self):
+        """ Parse /etc/kdump file """
+        path = "/var/crash"
+
+        kdump = '/etc/kdump.conf'
+        with open(kdump, 'r', encoding='UTF-8') as file:
+            for line in file:
+                if line.startswith("path"):
+                    path = line.split()[1]
+
+        return path
+
+    def setup(self):
+        super().setup()
+
+        self.add_copy_spec[(
+            "/etc/kdump.conf",
+            "/usr/lib/udev/rules.d/*kexec.rules",
+            "/var/crash/*/kexec-dmesg.log"
+        )]
+        self.add_copy_spec("/var/crash/*/vmcore-dmesg.txt",
+                    tags="vmcore_dmesg")
+
+        try:
+            path = self.read_kdump_conffile()
+        except Exception:  # pylint: disable=broad-except
+            # set no filesystem and default path
+            path = "/var/crash"
+
+        if self.get_option("all_logs"):
+            self.add_copy_spec(f"{path}/**")
+        else:
+            self.add_copy_spec(f"{path}/*/vmcore-dmesg.txt")
+            self.add_copy_spec(f"{path}/*/kexec-dmesg.log")
 
 # vim: set et ts=4 sw=4 :
